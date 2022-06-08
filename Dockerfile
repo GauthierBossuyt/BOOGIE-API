@@ -1,0 +1,20 @@
+FROM node:latest
+
+WORKDIR /USR/database
+
+ARG SPOTIFY_CLIENT_ID
+ARG SPOTIFY_REDIRECT_URI
+
+ENV SPOTIFY_CLIENT_ID $SPOTIFY_CLIENT_ID
+ENV SPOTIFY_REDIRECT_URI $SPOTIFY_REDIRECT_URI
+
+COPY package*.json ./
+
+RUN npm install --silent
+
+COPY ./ ./
+
+EXPOSE 8080
+
+
+CMD ["npm" ,"start"]
