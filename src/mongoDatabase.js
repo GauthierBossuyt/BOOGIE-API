@@ -1,6 +1,5 @@
 const { MongoClient } = require("mongodb");
 require("dotenv").config();
-
 const url = `mongodb+srv://admin:${process.env.MONGODB_PASSWORD}@boogie-database.fcjnf7m.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(url);
 

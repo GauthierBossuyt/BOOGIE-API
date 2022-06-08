@@ -1,5 +1,4 @@
 const { Server } = require("socket.io");
-const FRONTEND_PORT = 3000;
 
 class Socket {
   constructor() {
@@ -12,7 +11,7 @@ class Socket {
   initialize(server) {
     this.io = new Server(server, {
       cors: {
-        origin: `http://localhost:${FRONTEND_PORT}`,
+        origin: `https://boogie.brussels/`,
       },
     });
 
