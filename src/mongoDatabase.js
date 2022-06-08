@@ -67,6 +67,7 @@ class Database {
   async createRoom(room) {
     if (room.name && room.description && room.host && room.email) {
       try {
+        let code = await this.generateRoomCode();
         let result = await this.rooms.insertOne({
           email: room.email,
           host: room.host,
@@ -74,9 +75,9 @@ class Database {
           name: room.name,
           description: room.description,
           party: room.party,
-          code: await this.generateRoomCode(),
+          code: code,
         });
-        return result.insertedId ? true : false;
+        return result.insertedId ? await this.getRoom(code) : false;
       } catch (e) {
         console.log(e.stack);
         return false;
