@@ -11,7 +11,7 @@ class Socket {
   initialize(server) {
     this.io = new Server(server, {
       cors: {
-        origin: `${process.env.SPOTIFY_REDIRECT_URI}`,
+        origin: `http://localhost:3000`,
       },
     });
 
