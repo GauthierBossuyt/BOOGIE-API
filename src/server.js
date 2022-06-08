@@ -28,7 +28,7 @@ ROOM_ROUTER.route("/")
   .get(async (req, res) => {
     if (req.query.code) {
       let result = await database.getRoom(req.query.code);
-      if (result.length > 0) {
+      if (result.code === req.query.code) {
         res.status(200).send({ room: result });
       } else {
         res.status(404).send({ message: "Room not found!" });
