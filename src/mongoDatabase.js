@@ -96,6 +96,7 @@ class Database {
     if (await this.doesRoomAlreadyExist(code)) {
       try {
         let res = await this.rooms.findOne({ code: code }, { code: 1 });
+        console.log(res);
         return res;
       } catch (e) {
         console.log(e.stack);
