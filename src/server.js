@@ -5,6 +5,7 @@ const cors = require("cors");
 
 const { database } = require("./mongoDatabase.js");
 const spotify = require("./routes/spotify.js");
+const { Timestamp } = require("mongodb");
 require("dotenv").config();
 //GLOBAL VARIABLES
 const SERVER = express();
@@ -97,6 +98,10 @@ SERVER.patch("/update", async (req, res) => {
   } else {
     res.status(400).send({ ERROR: "Unable to update room data!" });
   }
+});
+
+SERVER.get("/", async (req, res) => {
+  res.status(200).send({ name: "Boogie-api", time: Date.now() });
 });
 
 SERVER.use("/rooms", ROOM_ROUTER);
