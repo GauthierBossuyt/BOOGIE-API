@@ -1,5 +1,5 @@
 const { Server } = require("socket.io");
-
+const { Database, database } = require("./mongoDatabase.js");
 class Socket {
   constructor() {
     this.io;
@@ -11,14 +11,14 @@ class Socket {
   initialize(server) {
     this.io = new Server(server, {
       cors: {
-        origin: `https://boogie.brussels`,
+        origin: `${process.env.SPOTIFY_REDIRECT_URI}`,
       },
     });
 
     this.io.on("connection", (socket) => {
       console.log(`User: ${socket.id} has connected!`);
 
-      socket.on("disconnect", (e) => {
+      socket.on("disconnect", async (e) => {
         console.log(`User: ${socket.id} has disconnected!`);
 
         if (this.members[socket.id]) {
@@ -45,6 +45,15 @@ class Socket {
           //Remove room if no users are left
           if (this.roomData[roomcode].members.length <= 0) {
             this.io.in(roomcode).emit("force leave");
+            let room = this.roomData[roomcode];
+            database.endRoom(
+              roomcode,
+              room.joined_members,
+              room.song_most_votes,
+              room.played_songs,
+              room.Q_songs,
+              room.Q_votes
+            );
             delete this.roomData[roomcode];
             console.log(roomcode + " has ended");
           } else if (this.roomData[roomcode].members.length > 0 && isHost) {
@@ -54,6 +63,12 @@ class Socket {
               .to(this.roomData[roomcode].members[0].socket_id)
               .emit("activate host mode");
             this.roomData[roomcode].members[0].isHost = true;
+            this.roomData[roomcode].Q_songs--;
+            this.roomData[roomcode].played_songs.pop();
+            await database.changeHostOfRoom(
+              roomcode,
+              this.roomData[roomcode].members[0].name
+            );
           }
 
           //Remove user from user object
@@ -99,9 +114,13 @@ class Socket {
           banned_songs: [],
           current_song: {},
           audio_features: {},
+          joined_members: [],
           voting: [],
-          played_songs: [],
           actions: [],
+          song_most_votes: { id: null, votes: 0 },
+          played_songs: [],
+          Q_songs: 0,
+          Q_votes: 0,
           host: "",
         };
       }
@@ -140,6 +159,17 @@ class Socket {
         isHost: isHost,
       });
 
+      let joined = this.roomData[room_id].joined_members.findIndex(
+        (x) => x.name === user_info.display_name
+      );
+
+      if (joined === -1) {
+        this.roomData[room_id].joined_members.push({
+          name: user_info.display_name,
+          spotify_id: user_info.id,
+        });
+      }
+
       this.members[socket.id] = { room: room_id, name: user_info.display_name };
       this.io
         .in(room_id)
@@ -174,8 +204,7 @@ class Socket {
   statusEvents(socket) {
     socket.on("room status", (room_id) => {
       if (this.roomData[room_id]) {
-        console.log(socket.id);
-        console.log(this.roomData[room_id].host);
+        console.log(this.roomData[room_id]);
         if (socket.id === this.roomData[room_id].host) {
           this.io
             .to(socket.id)
@@ -248,6 +277,15 @@ class Socket {
             this.io
               .to(this.roomData[room_id].host)
               .emit("add song to queue", this.roomData[room_id].voting[0].data);
+            if (
+              this.roomData[room_id].song_most_votes.votes <
+              this.roomData[room_id].voting[0].votes
+            ) {
+              this.roomData[room_id].song_most_votes = {
+                id: this.roomData[room_id].voting[0].data.id,
+                votes: this.roomData[room_id].voting[0].votes,
+              };
+            }
             this.roomData[room_id].voting = [];
           }
 
@@ -296,26 +334,29 @@ class Socket {
             message: `voted on ${song.data.name}`,
             target: this.members[socket.id].name,
           });
+          this.roomData[room_id].Q_votes++;
         }
       });
     });
   }
 
   addEvents(socket) {
-    socket.on("successfully added song to the queue", (room_id, song) => {
+    socket.on("successfully added song to the queue", async (room_id, song) => {
       this.io
         .in(room_id)
-        .emit("display message", `${song.data.name} will be played next!`);
-      this.roomData[room_id].played_songs.push(song.data);
+        .emit(
+          "display message",
+          `${song.name} has been added to the Spotify queue!`
+        );
       this.roomData[room_id].actions.push({
         message: `has been added to the Spotify queue.`,
-        target: song.data.name,
+        target: song.name,
       });
     });
   }
 
   setCurrentSong(socket) {
-    socket.on("Set Current Song", (room_id, song, audio_features) => {
+    socket.on("Set Current Song", async (room_id, song, audio_features) => {
       if (this.roomData[room_id] && song) {
         this.roomData[room_id].current_song = song;
         this.roomData[room_id].audio_features = audio_features;
@@ -323,6 +364,8 @@ class Socket {
         this.io
           .to(this.roomData[room_id].visual_connections[0])
           .emit("audio features", audio_features);
+        this.roomData[room_id].played_songs.push(song.item.id);
+        this.roomData[room_id].Q_songs++;
       }
     });
 
@@ -332,17 +375,6 @@ class Socket {
           .to(this.roomData[room_id].host)
           .emit("get current song playing data", socket.id);
       }
-
-      // if (this.roomData[room_id]) {
-      //   if (this.roomData[room_id].current_song) {
-      //     this.io
-      //       .to(socket.id)
-      //       .emit(
-      //         "requested current song data",
-      //         this.roomData[room_id].current_song
-      //       );
-      //   }
-      // }
     });
 
     socket.on("current song data", (room_id, data, id) => {
@@ -382,6 +414,13 @@ class Socket {
           this.io
             .to(socket.id)
             .emit("display message", `Couldn't find user ${name}!`);
+        }
+
+        let joined = this.roomData[sessionCode].joined_members.findIndex(
+          (x) => x.name === name
+        );
+        if (joined !== -1) {
+          this.roomData[sessionCode].joined_members.splice(joined, 1);
         }
       }
     });
@@ -481,6 +520,14 @@ class Socket {
       if (sessionCode) {
         if (this.roomData[sessionCode].host === socket.id) {
           this.io.in(sessionCode).emit("force leave");
+          let room = this.roomData[sessionCode];
+          database.endRoom({
+            members: room.joined_members,
+            song_most_votes: room.song_most_votes,
+            played_songs: room.played_songs,
+            Q_songs: room.Q_songs,
+            Q_votes: room.Q_votes,
+          });
         }
       }
     });

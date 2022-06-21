@@ -71,11 +71,11 @@ class Database {
         let result = await this.rooms.insertOne({
           email: room.email,
           host: room.host,
-          played_songs: [],
           name: room.name,
           description: room.description,
           party: room.party,
           code: code,
+          Created_at: Date.now(),
         });
         return result.insertedId ? await this.getRoom(code) : false;
       } catch (e) {
@@ -165,6 +165,39 @@ class Database {
       } catch (e) {
         console.log(e.stack);
       }
+    } else {
+      return false;
+    }
+  }
+
+  async endRoom(
+    code,
+    members,
+    song_most_votes,
+    played_songs,
+    Q_votes,
+    Q_songs
+  ) {
+    if (await this.doesRoomAlreadyExist(code)) {
+      try {
+        let res = await this.rooms.updateOne(
+          { code: code },
+          {
+            $set: {
+              joined_members: members,
+              song_most_votes: song_most_votes,
+              played_songs: played_songs,
+              Q_votes: Q_votes,
+              Q_songs: Q_songs,
+            },
+          },
+          { upsert: true }
+        );
+        return res.modifiedCount > 0 ? true : false;
+      } catch (e) {
+        console.log(e.stack);
+      }
+      return true;
     } else {
       return false;
     }
