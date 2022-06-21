@@ -11,8 +11,8 @@ The Boogie API is part of my larger project Boogie. Boogie is a project aimed to
 A step-by-step guide to launch my project.
 
 1. Start by creating an .env file, based on the .example-env file.
-2. Check if everything fits your needs.
-3. Open a command prompt and make sure the path links to the projects folder. Use the next command to build and run the sever: `npm start`.
+2. Open a command prompt and make sure the path links to the projects folder. Use the next command to install the required packages `npm install`.
+3. run the sever with the `npm start` command.
 
 #
 
