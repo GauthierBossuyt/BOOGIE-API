@@ -113,6 +113,7 @@ class Socket {
           banned_members: [],
           banned_songs: [],
           current_song: {},
+          next_song: {},
           audio_features: {},
           joined_members: [],
           voting: [],
@@ -277,6 +278,8 @@ class Socket {
             this.io
               .to(this.roomData[room_id].host)
               .emit("add song to queue", this.roomData[room_id].voting[0].data);
+            this.roomData[room_id].next_song =
+              this.roomData[room_id].voting[0].data;
             if (
               this.roomData[room_id].song_most_votes.votes <
               this.roomData[room_id].voting[0].votes
@@ -287,32 +290,66 @@ class Socket {
               };
             }
             this.roomData[room_id].voting = [];
+          } else {
+            this.roomData[room_id].next_song = {};
           }
+          this.io
+            .to(room_id)
+            .emit("next song data", this.roomData[room_id].next_song);
 
           if (queueLength === 0) {
             console.log("Voting skipped for now");
-            this.io.to(room_id).emit("start voting", false);
+            this.io
+              .to(room_id)
+              .emit(
+                "start voting",
+                false,
+                this.roomData[room_id].voting,
+                this.roomData[room_id].queue
+              );
           } else if (queueLength === 1) {
+            this.roomData[room_id].next_song = this.roomData[room_id].queue[0];
             console.log("Add to Spotify queue");
             let song_id = this.roomData[room_id].queue.shift();
+
+            this.io
+              .to(room_id)
+              .emit("next song data", this.roomData[room_id].next_song);
             this.io
               .to(this.roomData[room_id].host)
               .emit("add song to queue", song_id);
-            this.io.to(room_id).emit("start voting", false);
+            this.io
+              .to(room_id)
+              .emit(
+                "start voting",
+                false,
+                this.roomData[room_id].voting,
+                this.roomData[room_id].queue
+              );
           } else if (queueLength === 2) {
             console.log("2 songs in queue");
             let queue = this.getSongsFromQueue(2, room_id);
             this.roomData[room_id].voting = queue;
             this.io
               .in(room_id)
-              .emit("start voting", true, this.roomData[room_id].voting);
+              .emit(
+                "start voting",
+                true,
+                this.roomData[room_id].voting,
+                this.roomData[room_id].queue
+              );
           } else if (queueLength >= 3) {
             console.log("3 songs in queue");
             let queue = this.getSongsFromQueue(3, room_id);
             this.roomData[room_id].voting = queue;
             this.io
               .in(room_id)
-              .emit("start voting", true, this.roomData[room_id].voting);
+              .emit(
+                "start voting",
+                true,
+                this.roomData[room_id].voting,
+                this.roomData[room_id].queue
+              );
           }
         }
       }
